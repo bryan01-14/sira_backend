@@ -9,6 +9,6 @@ python-multipart>=0.0.12
 httpx>=0.27.0
 supabase>=2.8.0
 boto3>=1.35.0
-mangum>=0.17.0
+
 
 
