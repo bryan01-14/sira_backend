@@ -4,12 +4,6 @@ from app.config import settings
 from app.database import engine, Base
 import app.models  # Assure que tous les modèles SQLAlchemy sont chargés
 
-# Création sécurisée des tables dans la base de données
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    print(f"[Database Notice] Tables non créées au démarrage (normal si initialisées ou cold start): {e}")
-
 
 from app.routers import (
     auth_router,
