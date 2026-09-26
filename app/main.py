@@ -47,10 +47,8 @@ app.add_middleware(
 )
 
 
-# Route racine & de santé (compatibilité multi-préfixes Vercel)
+# Route racine & de santé
 @app.get("/", tags=["Système"], summary="Accueil API SIRA")
-@app.get("/api", tags=["Système"])
-@app.get("/api/", tags=["Système"])
 def root():
     return {
         "status": "OK",
@@ -60,7 +58,6 @@ def root():
     }
 
 @app.get("/health", tags=["Système"], summary="Statut du serveur SIRA")
-@app.get("/api/health", tags=["Système"])
 def health_check():
     return {
         "status": "OK",
@@ -68,6 +65,7 @@ def health_check():
         "version": settings.VERSION,
         "environment": "active"
     }
+
 
 # Inclusion des routeurs API v1 (montés sur /api/v1, /v1, /api/api/v1 pour Vercel)
 api_prefixes = [
