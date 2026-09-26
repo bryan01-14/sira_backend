@@ -34,35 +34,28 @@ app = FastAPI(
 )
 
 import urllib.parse
-from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request
 
-class VercelPathMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        route = request.query_params.get("__route__")
-        if route is not None:
-            clean_route = "/" + route.lstrip("/") if route else "/"
-            request.scope["path"] = clean_route
-            
-            # Remove __route__ from query string
-            qs = request.scope.get("query_string", b"").decode("utf-8")
-            params = urllib.parse.parse_qs(qs, keep_blank_values=True)
-            params.pop("__route__", None)
-            new_qs = urllib.parse.urlencode(params, doseq=True)
-            request.scope["query_string"] = new_qs.encode("utf-8")
-        else:
-            path = request.scope.get("path", "")
-            for prefix in ["/api/index.py", "/api/index"]:
-                if path.startswith(prefix):
-                    path = path[len(prefix):]
-                    break
-            request.scope["path"] = "/" + path.lstrip("/") if path else "/"
+class AsgiVercelPathMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-        return await call_next(request)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            qs = scope.get("query_string", b"").decode("utf-8")
+            if "__route__=" in qs:
+                params = urllib.parse.parse_qs(qs, keep_blank_values=True)
+                route_list = params.pop("__route__", [])
+                if route_list:
+                    route = route_list[0]
+                    clean_route = "/" + route.lstrip("/") if route else "/"
+                    scope["path"] = clean_route
+                    scope["raw_path"] = clean_route.encode("utf-8")
+                    new_qs = urllib.parse.urlencode(params, doseq=True)
+                    scope["query_string"] = new_qs.encode("utf-8")
+        await self.app(scope, receive, send)
 
-app.add_middleware(VercelPathMiddleware)
-
-
+app.add_middleware(AsgiVercelPathMiddleware)
 
 # Configuration CORS
 app.add_middleware(
@@ -73,30 +66,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Route racine & de santé
 @app.get("/", tags=["Système"], summary="Accueil API SIRA")
-def root(request: Request):
+def root():
     return {
         "status": "OK",
         "app": settings.PROJECT_NAME,
         "version": settings.VERSION,
-        "headers": dict(request.headers),
-        "raw_scope_path": request.scope.get("path")
-    }
-
-
-@app.get("/debug-headers", tags=["Système"])
-def debug_headers(request: Request):
-    return {
-        "headers": dict(request.headers),
-        "scope_path": request.scope.get("path"),
-        "raw_path": str(request.scope.get("raw_path", b"")),
-        "url_path": request.url.path
+        "docs": "/docs"
     }
 
 @app.get("/health", tags=["Système"], summary="Statut du serveur SIRA")
-
 def health_check():
     return {
         "status": "OK",
@@ -104,6 +84,9 @@ def health_check():
         "version": settings.VERSION,
         "environment": "active"
     }
+
+
+
 
 
 # Inclusion des routeurs API v1
