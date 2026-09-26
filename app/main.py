@@ -33,33 +33,35 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+import urllib.parse
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import Request
 
 class VercelPathMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        path = request.scope.get("path", "")
-        
-        # Check headers passed by Vercel for the original path
-        for h in ["x-matched-path", "x-invoke-path", "x-forwarded-uri"]:
-            header_val = request.headers.get(h)
-            if header_val and not header_val.startswith("/api/index"):
-                path = header_val.split("?")[0]
-                break
-        
-        # Clean serverless function prefixes if present
-        for prefix in ["/api/index.py", "/api/index"]:
-            if path.startswith(prefix):
-                path = path[len(prefix):]
-                break
-                
-        if not path or path == "":
-            path = "/"
+        route = request.query_params.get("__route__")
+        if route is not None:
+            clean_route = "/" + route.lstrip("/") if route else "/"
+            request.scope["path"] = clean_route
             
-        request.scope["path"] = path
+            # Remove __route__ from query string
+            qs = request.scope.get("query_string", b"").decode("utf-8")
+            params = urllib.parse.parse_qs(qs, keep_blank_values=True)
+            params.pop("__route__", None)
+            new_qs = urllib.parse.urlencode(params, doseq=True)
+            request.scope["query_string"] = new_qs.encode("utf-8")
+        else:
+            path = request.scope.get("path", "")
+            for prefix in ["/api/index.py", "/api/index"]:
+                if path.startswith(prefix):
+                    path = path[len(prefix):]
+                    break
+            request.scope["path"] = "/" + path.lstrip("/") if path else "/"
+
         return await call_next(request)
 
 app.add_middleware(VercelPathMiddleware)
+
 
 
 # Configuration CORS
