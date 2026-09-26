@@ -1,18 +1,41 @@
 import os
 import sys
+import traceback
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
-# Ensure backend root directory is in python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 1. Add potential project directories to sys.path
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+API_DIR = os.path.dirname(os.path.abspath(__file__))
+CWD = os.getcwd()
 
-from app.main import app
+for p in [BASE_DIR, API_DIR, CWD, os.path.join(CWD, "Backend")]:
+    if p and p not in sys.path:
+        sys.path.insert(0, p)
 
-# Vercel Serverless ASGI handler
+import_error = None
 try:
-    from mangum import Mangum
-    handler = Mangum(app, lifespan="off")
-except Exception:
-    handler = app
+    from app.main import app as main_app
+    app = main_app
+except Exception as e:
+    import_error = traceback.format_exc()
+    # Create emergency diagnostic app
+    app = FastAPI(title="SIRA Backend Diagnostic")
+    
+    @app.get("/{full_path:path}")
+    def diagnostic_fallback(full_path: str = ""):
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "FastAPI App Import Failed on Vercel",
+                "details": import_error,
+                "sys_path": sys.path,
+                "files_in_base": os.listdir(BASE_DIR) if os.path.exists(BASE_DIR) else [],
+                "cwd": CWD
+            }
+        )
 
-# Export for both ASGI direct and Mangum serverless
-app = app
+# Export handler
+handler = app
+
 
