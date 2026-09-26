@@ -50,8 +50,7 @@ app.add_middleware(
 # Route racine & de santé (compatibilité multi-préfixes Vercel)
 @app.get("/", tags=["Système"], summary="Accueil API SIRA")
 @app.get("/api", tags=["Système"])
-@app.get("/api/index", tags=["Système"])
-@app.get("/api/index.py", tags=["Système"])
+@app.get("/api/", tags=["Système"])
 def root():
     return {
         "status": "OK",
@@ -62,8 +61,6 @@ def root():
 
 @app.get("/health", tags=["Système"], summary="Statut du serveur SIRA")
 @app.get("/api/health", tags=["Système"])
-@app.get("/api/index/health", tags=["Système"])
-@app.get("/api/index.py/health", tags=["Système"])
 def health_check():
     return {
         "status": "OK",
@@ -72,13 +69,11 @@ def health_check():
         "environment": "active"
     }
 
-# Inclusion des routeurs API v1 (montés sur tous les préfixes pour 100% de compatibilité Vercel)
+# Inclusion des routeurs API v1 (montés sur /api/v1, /v1, /api/api/v1 pour Vercel)
 api_prefixes = [
-    settings.API_V1_STR,                   # /api/v1
-    f"/api/index.py{settings.API_V1_STR}", # /api/index.py/api/v1
-    f"/api/index{settings.API_V1_STR}",    # /api/index/api/v1
-    "/v1",                                 # /v1
-    "/api/index.py/v1",                    # /api/index.py/v1
+    settings.API_V1_STR,             # /api/v1
+    "/v1",                           # /v1
+    f"/api{settings.API_V1_STR}",    # /api/api/v1
 ]
 
 for pfx in set(api_prefixes):
@@ -89,6 +84,7 @@ for pfx in set(api_prefixes):
     app.include_router(incidents_router, prefix=pfx)
     app.include_router(routing_router, prefix=pfx)
     app.include_router(voice_router, prefix=pfx)
+
 
 
 if __name__ == "__main__":
