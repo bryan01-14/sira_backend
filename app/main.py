@@ -33,31 +33,8 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
-import urllib.parse
-from fastapi import Request
-
-class AsgiVercelPathMiddleware:
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            qs = scope.get("query_string", b"").decode("utf-8")
-            if "__route__=" in qs:
-                params = urllib.parse.parse_qs(qs, keep_blank_values=True)
-                route_list = params.pop("__route__", [])
-                if route_list:
-                    route = route_list[0]
-                    clean_route = "/" + route.lstrip("/") if route else "/"
-                    scope["path"] = clean_route
-                    scope["raw_path"] = clean_route.encode("utf-8")
-                    new_qs = urllib.parse.urlencode(params, doseq=True)
-                    scope["query_string"] = new_qs.encode("utf-8")
-        await self.app(scope, receive, send)
-
-app.add_middleware(AsgiVercelPathMiddleware)
-
 # Configuration CORS
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
