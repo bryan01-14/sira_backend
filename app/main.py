@@ -47,8 +47,11 @@ app.add_middleware(
 )
 
 
-# Route racine & de santé
+# Route racine & de santé (compatibilité multi-préfixes Vercel)
 @app.get("/", tags=["Système"], summary="Accueil API SIRA")
+@app.get("/api", tags=["Système"])
+@app.get("/api/index", tags=["Système"])
+@app.get("/api/index.py", tags=["Système"])
 def root():
     return {
         "status": "OK",
@@ -58,6 +61,9 @@ def root():
     }
 
 @app.get("/health", tags=["Système"], summary="Statut du serveur SIRA")
+@app.get("/api/health", tags=["Système"])
+@app.get("/api/index/health", tags=["Système"])
+@app.get("/api/index.py/health", tags=["Système"])
 def health_check():
     return {
         "status": "OK",
@@ -66,18 +72,24 @@ def health_check():
         "environment": "active"
     }
 
+# Inclusion des routeurs API v1 (montés sur tous les préfixes pour 100% de compatibilité Vercel)
+api_prefixes = [
+    settings.API_V1_STR,                   # /api/v1
+    f"/api/index.py{settings.API_V1_STR}", # /api/index.py/api/v1
+    f"/api/index{settings.API_V1_STR}",    # /api/index/api/v1
+    "/v1",                                 # /v1
+    "/api/index.py/v1",                    # /api/index.py/v1
+]
 
+for pfx in set(api_prefixes):
+    app.include_router(auth_router, prefix=pfx)
+    app.include_router(users_router, prefix=pfx)
+    app.include_router(transport_router, prefix=pfx)
+    app.include_router(fares_router, prefix=pfx)
+    app.include_router(incidents_router, prefix=pfx)
+    app.include_router(routing_router, prefix=pfx)
+    app.include_router(voice_router, prefix=pfx)
 
-
-
-# Inclusion des routeurs API v1
-app.include_router(auth_router, prefix=settings.API_V1_STR)
-app.include_router(users_router, prefix=settings.API_V1_STR)
-app.include_router(transport_router, prefix=settings.API_V1_STR)
-app.include_router(fares_router, prefix=settings.API_V1_STR)
-app.include_router(incidents_router, prefix=settings.API_V1_STR)
-app.include_router(routing_router, prefix=settings.API_V1_STR)
-app.include_router(voice_router, prefix=settings.API_V1_STR)
 
 if __name__ == "__main__":
     import uvicorn
