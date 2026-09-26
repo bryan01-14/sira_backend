@@ -5,11 +5,67 @@ from datetime import datetime, timezone, timedelta
 from app.database import get_db
 from app.models.incident import Incident, IncidentVote
 from app.schemas.incident import IncidentCreate, IncidentResponse, IncidentVoteRequest
-from app.services.auth_service import get_current_user
+from app.services.auth_service import get_current_user, get_optional_current_user
 from app.models.user import User
 from app.services.geo_utils import calculate_distance_km
 
 router = APIRouter(prefix="/incidents", tags=["Signalements & Trafic"])
+
+@router.get("/notifications", summary="Flux de notifications en temps réel pour les signalements et le trafic")
+def get_notifications(
+    limit: int = 25,
+    db: Session = Depends(get_db)
+):
+    now = datetime.now(timezone.utc)
+    incidents = db.query(Incident).filter(
+        Incident.expires_at > now,
+        Incident.status != "REJECTED"
+    ).order_by(Incident.created_at.desc()).limit(limit).all()
+
+    notifications = []
+    for inc in incidents:
+        icon_name = "warning"
+        type_str = "signalement"
+        if inc.type == "ACCIDENT":
+            icon_name = "car-sport"
+            type_str = "accident"
+        elif inc.type == "TRAFFIC_JAM":
+            icon_name = "car"
+            type_str = "traffic"
+        elif inc.type in ["ROAD_BLOCK", "FLOOD"]:
+            icon_name = "warning"
+            type_str = "signalement"
+        else:
+            icon_name = "navigate"
+            type_str = "route"
+
+        created_dt = inc.created_at if inc.created_at.tzinfo else inc.created_at.replace(tzinfo=timezone.utc)
+        diff = now - created_dt
+        mins = max(1, int(diff.total_seconds() / 60))
+        if mins < 60:
+            time_str = f"Il y a {mins} min"
+        elif mins < 1440:
+            time_str = f"Il y a {mins // 60}h"
+        else:
+            time_str = f"Il y a {mins // 1440}j"
+
+        notifications.append({
+            "id": inc.id,
+            "incident_id": inc.id,
+            "type": type_str,
+            "title": inc.title,
+            "message": inc.description or f"Signalement à {inc.commune} ({inc.type}).",
+            "time": time_str,
+            "iconName": icon_name,
+            "severity": inc.severity,
+            "commune": inc.commune,
+            "latitude": inc.latitude,
+            "longitude": inc.longitude,
+            "upvotes": inc.upvotes,
+            "created_at": inc.created_at.isoformat()
+        })
+
+    return notifications
 
 @router.get("/active", response_model=List[IncidentResponse], summary="Lister les signalements actifs (embouteillages, inondations...)")
 def get_active_incidents(
@@ -41,9 +97,11 @@ def get_active_incidents(
 def report_incident(
     payload: IncidentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
     expires_at = datetime.now(timezone.utc) + timedelta(hours=payload.duration_hours or 3)
+    user_id = current_user.id if current_user else None
+    
     incident = Incident(
         type=payload.type,
         title=payload.title,
@@ -52,7 +110,7 @@ def report_incident(
         longitude=payload.longitude,
         commune=payload.commune or "Abidjan",
         severity=payload.severity or "MEDIUM",
-        reported_by_id=current_user.id,
+        reported_by_id=user_id,
         expires_at=expires_at,
         upvotes=1,
         downvotes=0
@@ -61,16 +119,18 @@ def report_incident(
     db.commit()
     db.refresh(incident)
 
-    # Vote auto du déclarant
-    vote = IncidentVote(
-        incident_id=incident.id,
-        user_id=current_user.id,
-        is_helpful=1
-    )
-    db.add(vote)
-    db.commit()
+    # Vote auto du déclarant si connecté
+    if user_id:
+        vote = IncidentVote(
+            incident_id=incident.id,
+            user_id=user_id,
+            is_helpful=1
+        )
+        db.add(vote)
+        db.commit()
 
     return incident
+
 
 @router.post("/{id}/vote", response_model=IncidentResponse, summary="Confirmer ou infirmer un signalement (Validation croisée)")
 def vote_incident(
