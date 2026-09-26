@@ -74,13 +74,15 @@ app.add_middleware(
 
 # Route racine & de santé
 @app.get("/", tags=["Système"], summary="Accueil API SIRA")
-def root():
+def root(request: Request):
     return {
         "status": "OK",
         "app": settings.PROJECT_NAME,
         "version": settings.VERSION,
-        "docs": "/docs"
+        "headers": dict(request.headers),
+        "raw_scope_path": request.scope.get("path")
     }
+
 
 @app.get("/debug-headers", tags=["Système"])
 def debug_headers(request: Request):
