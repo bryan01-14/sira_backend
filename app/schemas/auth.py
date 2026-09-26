@@ -8,6 +8,8 @@ class OtpResponse(BaseModel):
     message: str
     phone_number: str
     expires_in_seconds: int = 600
+    otp_code: str = Field(..., description="Code OTP généré transmis directement à l'application")
+    code: str = Field(..., description="Alias du code OTP pour l'application mobile")
     mock_code: Optional[str] = None
 
 class OtpVerifyRequest(BaseModel):

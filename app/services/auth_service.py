@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 import random
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -45,9 +45,11 @@ class AuthService:
         SmsService.send_otp_sms(clean_phone, code)
 
         return {
-            "message": f"Code OTP envoyé avec succès par SMS au {clean_phone}.",
+            "message": f"Code OTP envoyé avec succès pour le numéro {clean_phone}.",
             "phone_number": clean_phone,
             "expires_in_seconds": 600,
+            "otp_code": code,
+            "code": code,
             "mock_code": code if settings.ORANGE_OTP_MOCK else None
         }
 
@@ -79,6 +81,10 @@ class AuthService:
                 role=role or "WORKER"
             )
             db.add(user)
+            db.commit()
+            db.refresh(user)
+        elif full_name:
+            user.full_name = full_name
             db.commit()
             db.refresh(user)
 

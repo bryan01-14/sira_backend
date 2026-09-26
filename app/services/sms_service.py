@@ -1,7 +1,8 @@
-﻿import httpx
+import httpx
 import logging
 import urllib.parse
 from app.config import settings
+from app.services.aws_sns_service import AwsSnsService
 
 logger = logging.getLogger("sira.sms")
 
@@ -9,12 +10,17 @@ class SmsService:
     @staticmethod
     def send_otp_sms(phone_number: str, code: str) -> bool:
         """
-        Envoi du code OTP par SMS en temps réel via Orange Developer API Côte d'Ivoire.
+        Envoi du code OTP par SMS en temps reel.
+        Pipeline supporte :
+        1. AWS SNS & Pinpoint SMS-Voice (Sender ID: SIRA)
+        2. Orange Developer API Cote d'Ivoire
+        3. Twilio SMS Gateway
+        4. Mode Log / Console
         """
         clean_phone = phone_number.replace(" ", "").strip()
-        message = f"Votre code de vérification SIRA est : {code}. Valable 10 minutes."
+        message = f"Votre code de verification SIRA est : {code}. Valable 10 minutes."
 
-        # 1. Envoi via Orange Developer API Côte d'Ivoire
+        # 1. Envoi prioritaire via Orange Developer API Côte d'Ivoire
         if settings.ORANGE_AUTH_HEADER or (settings.ORANGE_CLIENT_ID and settings.ORANGE_CLIENT_SECRET):
             try:
                 print(f"[SMS Orange CI] Demande de token OAuth pour envoyer le SMS au {clean_phone}...")
@@ -55,7 +61,7 @@ class SmsService:
                     )
 
                     if send_resp.status_code in [200, 201]:
-                        print(f"[SMS Orange CI SUCCESS] SMS envoyé avec succès au {clean_phone} !")
+                        print(f"[SMS Orange CI SUCCESS] SMS envoye avec succes au {clean_phone} !")
                         return True
                     else:
                         print(f"[SMS Orange CI Response {send_resp.status_code}] {send_resp.text}")
@@ -64,7 +70,18 @@ class SmsService:
             except Exception as e:
                 print(f"[SMS Orange CI Exception] {e}")
 
-        # 2. Twilio (Alternative)
+        # 2. Envoi via AWS SNS / Pinpoint (si identifiants AWS presents)
+        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+            print(f"[AWS Notification] Envoi du SMS/Push via AWS pour {clean_phone}...")
+            sent = AwsSnsService.send_sms_otp(clean_phone, code)
+            if sent:
+                AwsSnsService.publish_push_notification(
+                    message=f"Nouvelle demande de connexion pour {clean_phone}",
+                    subject="Connexion SIRA"
+                )
+                return True
+
+        # 3. Twilio (Alternative)
         elif settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN:
             try:
                 print(f"[SMS Twilio] Envoi en cours au {clean_phone}...")
@@ -80,14 +97,14 @@ class SmsService:
                     timeout=10.0
                 )
                 if resp.status_code in [200, 201]:
-                    print(f"[SMS Twilio SUCCESS] SMS envoyé avec succès au {clean_phone}")
+                    print(f"[SMS Twilio SUCCESS] SMS envoye avec succes au {clean_phone}")
                     return True
                 else:
                     print(f"[SMS Twilio Error] {resp.text}")
             except Exception as e:
                 print(f"[SMS Twilio Exception] {e}")
 
-        # Mode console / local
+        # 4. Mode Log / Console
         print("\n=======================================================")
         print(f"[SMS SIRA ENVOYE AU {clean_phone}]")
         print(f"Message : '{message}'")

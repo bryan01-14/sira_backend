@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 
 class Settings(BaseSettings):
@@ -17,17 +17,25 @@ class Settings(BaseSettings):
     SUPABASE_KEY: Optional[str] = "sb_publishable_I7GyLw2P3TXKhV02-byztg_hgBuhKn_"
     SUPABASE_PROJECT_REF: Optional[str] = "kmfukfzsdvkjskztrhzb"
 
-    # Configuration SMS (Orange Côte d'Ivoire & Twilio)
+    # Configuration OTP
     ORANGE_OTP_MOCK: bool = False
     DEFAULT_OTP_CODE: str = "123456"
-    
+
+    # AWS SNS & Pinpoint SMS-Voice Configuration
+    AWS_REGION: str = "us-east-1"
+    AWS_SNS_TOPIC_ARN: Optional[str] = "arn:aws:sns:us-east-1:868962733015:SIRA:802d6db5-74b7-425e-8d37-98170f78bbb1"
+    AWS_SMS_SENDER_ID: Optional[str] = "SIRA"
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_SESSION_TOKEN: Optional[str] = None
+
     # Orange Developer API CI
     ORANGE_AUTH_HEADER: Optional[str] = "Basic MjB2RlBwbFVxaXlCb2xzbWYwekl2MThGeXpjd3RuRXg6VkRMQ0E0aG5JYjNFWmxtY2VCbmlyclZzSE9nNFdwT0Q0bUM1RWtkVFRyckk="
     ORANGE_CLIENT_ID: Optional[str] = "20vFPplUqiyBolsmf0zIv18FyzcwtnEx"
     ORANGE_CLIENT_SECRET: Optional[str] = "VDLCA4hnIb3EZlmceBnirrVsHOg4WpOD4mC5EkdTTrrI"
     ORANGE_SENDER_ADDRESS: Optional[str] = "tel:+2250000"
-    
-    # Twilio SMS Gateway (Alternative internationale)
+
+    # Twilio SMS Gateway (Alternative)
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_FROM_NUMBER: Optional[str] = None
