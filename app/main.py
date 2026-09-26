@@ -38,19 +38,29 @@ from fastapi import Request
 
 class VercelPathMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        matched = request.headers.get("x-matched-path")
-        if matched:
-            request.scope["path"] = matched
-        else:
-            path = request.scope.get("path", "")
-            for prefix in ["/api/index.py", "/api/index", "/api"]:
-                if path.startswith(prefix):
-                    new_path = path[len(prefix):]
-                    request.scope["path"] = new_path if new_path.startswith("/") else "/" + new_path
-                    break
+        path = request.scope.get("path", "")
+        
+        # Check headers passed by Vercel for the original path
+        for h in ["x-matched-path", "x-invoke-path", "x-forwarded-uri"]:
+            header_val = request.headers.get(h)
+            if header_val and not header_val.startswith("/api/index"):
+                path = header_val.split("?")[0]
+                break
+        
+        # Clean serverless function prefixes if present
+        for prefix in ["/api/index.py", "/api/index"]:
+            if path.startswith(prefix):
+                path = path[len(prefix):]
+                break
+                
+        if not path or path == "":
+            path = "/"
+            
+        request.scope["path"] = path
         return await call_next(request)
 
 app.add_middleware(VercelPathMiddleware)
+
 
 # Configuration CORS
 app.add_middleware(
