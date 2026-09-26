@@ -14,7 +14,7 @@ async def app(scope, receive, send):
             params = urllib.parse.parse_qs(qs, keep_blank_values=True)
             path_list = params.pop("__path__", [])
             if path_list:
-                target_path = path_list[0]
+                target_path = urllib.parse.unquote(path_list[0])
                 clean_path = "/" + target_path.lstrip("/") if target_path else "/"
                 scope["path"] = clean_path
                 scope["raw_path"] = clean_path.encode("latin1")
@@ -22,6 +22,7 @@ async def app(scope, receive, send):
                 new_qs = urllib.parse.urlencode(params, doseq=True)
                 scope["query_string"] = new_qs.encode("latin1")
     await fastapi_app(scope, receive, send)
+
 
 
 
