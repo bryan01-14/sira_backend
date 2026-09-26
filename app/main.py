@@ -33,6 +33,25 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
+
+class VercelPathMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        matched = request.headers.get("x-matched-path")
+        if matched:
+            request.scope["path"] = matched
+        else:
+            path = request.scope.get("path", "")
+            for prefix in ["/api/index.py", "/api/index", "/api"]:
+                if path.startswith(prefix):
+                    new_path = path[len(prefix):]
+                    request.scope["path"] = new_path if new_path.startswith("/") else "/" + new_path
+                    break
+        return await call_next(request)
+
+app.add_middleware(VercelPathMiddleware)
+
 # Configuration CORS
 app.add_middleware(
     CORSMiddleware,
@@ -41,6 +60,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Route racine & de santé
 @app.get("/", tags=["Système"], summary="Accueil API SIRA")
