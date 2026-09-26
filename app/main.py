@@ -82,7 +82,17 @@ def root():
         "docs": "/docs"
     }
 
+@app.get("/debug-headers", tags=["Système"])
+def debug_headers(request: Request):
+    return {
+        "headers": dict(request.headers),
+        "scope_path": request.scope.get("path"),
+        "raw_path": str(request.scope.get("raw_path", b"")),
+        "url_path": request.url.path
+    }
+
 @app.get("/health", tags=["Système"], summary="Statut du serveur SIRA")
+
 def health_check():
     return {
         "status": "OK",
