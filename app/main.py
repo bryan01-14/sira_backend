@@ -33,33 +33,8 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
-import urllib.parse
-from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi import Request
+# Configuration CORS
 
-class VercelPathMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        target_path = request.query_params.get("__path__")
-        if target_path:
-            clean_path = "/" + target_path.lstrip("/") if target_path else "/"
-            request.scope["path"] = clean_path
-            
-            # Clean __path__ parameter from query_string
-            qs = request.scope.get("query_string", b"").decode("latin1")
-            params = urllib.parse.parse_qs(qs, keep_blank_values=True)
-            params.pop("__path__", None)
-            new_qs = urllib.parse.urlencode(params, doseq=True)
-            request.scope["query_string"] = new_qs.encode("latin1")
-        elif request.scope.get("path", "").startswith("/api/index.py"):
-            rest = request.scope.get("path", "")[len("/api/index.py"):]
-            request.scope["path"] = rest if rest else "/"
-        elif request.scope.get("path", "").startswith("/api/index"):
-            rest = request.scope.get("path", "")[len("/api/index"):]
-            request.scope["path"] = rest if rest else "/"
-
-        return await call_next(request)
-
-app.add_middleware(VercelPathMiddleware)
 
 
 # Configuration CORS
