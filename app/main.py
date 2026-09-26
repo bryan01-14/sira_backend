@@ -48,7 +48,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Route de santé
+# Route racine & de santé
+@app.get("/", tags=["Système"], summary="Accueil API SIRA")
+def root():
+    return {
+        "status": "OK",
+        "app": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "docs": "/docs"
+    }
+
 @app.get("/health", tags=["Système"], summary="Statut du serveur SIRA")
 def health_check():
     return {
@@ -57,6 +66,7 @@ def health_check():
         "version": settings.VERSION,
         "environment": "active"
     }
+
 
 # Inclusion des routeurs API v1
 app.include_router(auth_router, prefix=settings.API_V1_STR)
