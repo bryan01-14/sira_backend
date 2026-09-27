@@ -10,6 +10,9 @@ def create_db_engine():
     if db_url and db_url.startswith("postgresql"):
         if db_url.startswith("postgresql://"):
             db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        if "sslmode=" not in db_url:
+            db_url += "?sslmode=require" if "?" not in db_url else "&sslmode=require"
+
         return create_engine(
             db_url,
             pool_pre_ping=True,
@@ -22,6 +25,7 @@ def create_db_engine():
     # Mode SQLite local / serverless fallback
     tmp_db = os.path.join(tempfile.gettempdir(), "sira.db")
     return create_engine(f"sqlite:///{tmp_db}", connect_args={"check_same_thread": False})
+
 
 
 
